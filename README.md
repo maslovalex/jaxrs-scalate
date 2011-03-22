@@ -1,7 +1,7 @@
 MIKEPB JAX-RS Scalate Provider
 ------------------------------
 
-This package provides a JAX-RS provider and a Servlet filter to allow
+This package provides a JAX-RS provider to allow
 [Scalate views](http://scalate.fusesource.org/documentation/user-guide.html#Views)
 to be used to render POJO models as HTML pages.
 
@@ -97,6 +97,10 @@ Implementation-specific instructions are available for:
 
 
 ### Create a resource
+
+To render POJO objects using Scalate views, use the JAX-RS `@Produces`
+annotation to tell the JAX-RS implementation that you want the returned POJO
+should be rendered using the Scalate provider.
 
 The JAX-RS API revolves around resources. `LandingPageResource.scala` is an
 example resource that displays a message when loading the root URL `/`:

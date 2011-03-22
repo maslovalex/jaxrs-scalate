@@ -23,6 +23,8 @@ import _root_.java.lang.Class
 import _root_.java.lang.annotation.Annotation
 import _root_.java.lang.reflect.Type
 import _root_.java.util.LinkedHashMap
+import _root_.javax.servlet._
+import _root_.javax.servlet.http._
 import _root_.javax.ws.rs._
 import _root_.javax.ws.rs.core._
 import _root_.javax.ws.rs.ext._
@@ -33,10 +35,13 @@ import _root_.org.fusesource.scalate.servlet._
  * Scalate JAX-RS provider.
  *
  * To use this provider, register it using [[javax.ws.rs.core.Application]]
- * and configure your Servlet container with the [[ScalateProvider.ScalateFilter]]
- * Servlet filter to run before the JAX-RS provider filter, if any.
+ * and configure your Servlet container with the
+ * [[org.fusesource.scalate.servlet.TemplateEngineFilter]] Servlet filter.
+ * The Scalate servlet filter initializes the template engine.
  *
- * See your JAX-RS container documentation for more information.
+ * See your JAX-RS container documentation and the
+ * [[http://scalate.fusesource.org/documentation/user-guide.html#using_scalate_as_servlet_filter_in_your_web_application Scalate Servlet feature]]
+ * for more information.
  *
  * {{{
  * class GCApplication extends javax.ws.rs.core.Application {
@@ -60,11 +65,20 @@ import _root_.org.fusesource.scalate.servlet._
  */
 @Provider
 @Produces(Array(MediaType.TEXT_HTML))
-class ScalateProvider(val useCache: Boolean = false) extends MessageBodyWriter[AnyRef] {
+class ScalateProvider(useCache: Boolean = false) extends MessageBodyWriter[AnyRef] {
 
-  import ScalateProvider._
+  @Context
+  private var request: HttpServletRequest = _
 
-  private val _cache =
+  @Context
+  private var response: HttpServletResponse = _
+
+  @Context
+  private var servletContext: ServletContext = _
+
+  private lazy val engine = ServletTemplateEngine(servletContext)
+
+  private val templateLookupCache =
     if (useCache)
       new LinkedHashMap[String, Boolean](128, 1.1f, true) {
         override protected def removeEldestEntry(x: java.util.Map.Entry[String, Boolean]) = size > 1024
@@ -72,22 +86,37 @@ class ScalateProvider(val useCache: Boolean = false) extends MessageBodyWriter[A
     else null
 
   /**
-   * Determines if the POJO model has a Scalate view template, caching results.
+   * Determines if the POJO model has a Scalate view template.
    *
+   * @param klass the POJO model class
+   * @param viewName the Scalate view name
+   * @return true if a template is available, false otherwise
    * @since 1.0
    */
-  def hasTemplate(kind: Class[_], viewName: String = "index"): Boolean = {
-    if (useCache && _cache != null) {
-      val cacheKey = kind.getName + "$" + viewName
-      _cache synchronized {
-        return _cache.getOrElse(cacheKey, {
-          val answer = ScalateProvider.hasTemplate(kind)
-          _cache += ((cacheKey, answer))
-          answer
-        })
-      }
+  private def templateExists(klass: Class[_], viewName: String): Boolean = {
+    val templateName = "/%s.%s.".format(klass.getName.replace(".", "/"), viewName)
+    for (base <- Array("/WEB-INF", ""); path <- TemplateEngine.templateTypes.map(templateName + _))
+      if (engine.resourceLoader.exists(base + path)) return true
+    false
+  }
+
+  /**
+   * Determines if the POJO model has a Scalate view template, caching the results.
+   *
+   * @param klass the POJO model class
+   * @param viewName the Scalate view name
+   * @return true if a template is available, false otherwise
+   * @since 1.0
+   */
+  private def templateExistsFromCache(klass: Class[_], viewName: String) = {
+    val cacheKey = klass.getName + "$" + viewName
+    templateLookupCache synchronized {
+      templateLookupCache.getOrElse(cacheKey, {
+        val answer = templateExists(klass, viewName)
+        templateLookupCache += ((cacheKey, answer))
+        answer
+      })
     }
-    ScalateProvider.hasTemplate(kind)
   }
 
   /**
@@ -97,7 +126,11 @@ class ScalateProvider(val useCache: Boolean = false) extends MessageBodyWriter[A
    * @see [[javax.ws.rs.ext.MessageBodyWriter.isWriteable]]
    */
   def isWriteable(kind: Class[_], genericType: Type, annotations: Array[Annotation],
-                  mediaType: MediaType) = hasTemplate(kind)
+                  mediaType: MediaType) = {
+    val viewName = "index"
+    if (useCache && templateLookupCache != null) templateExistsFromCache(kind, viewName)
+    else templateExists(kind, viewName)
+  }
 
   /**
    * Determines the size of the rendered template, currently indeterminate.
@@ -117,63 +150,13 @@ class ScalateProvider(val useCache: Boolean = false) extends MessageBodyWriter[A
   def writeTo(model: AnyRef, kind: Class[_], genericType: Type, annotations: Array[Annotation],
               mediaType: MediaType, httpHeaders: MultivaluedMap[String, AnyRef],
               entityStream: OutputStream) {
-    render(model, new PrintWriter(new OutputStreamWriter(entityStream, "UTF-8")))
-  }
-}
+    val out = new PrintWriter(new OutputStreamWriter(entityStream, "UTF-8"))
+    val context = new ServletRenderContext(engine, out, request, response, servletContext)
 
-/**
- * Scalate JAX-RS provider companion object.
- *
- * @since 1.0
- * @author Michael Phan-Ba
- */
-object ScalateProvider {
+    engine.layout(new Template {
+      def render(context: RenderContext) = context.view(model)
+    }, context)
 
-  private[scalate] val _engine = new ThreadLocal[TemplateEngine]
-  private[scalate] val _context = new ThreadLocal[PrintWriter => ServletRenderContext]
-
-  /**
-   * Determines if the POJO model has a Scalate view template.
-   *
-   * @param klass the POJO model class
-   * @param viewName the Scalate view name
-   * @return true if a template is available, false otherwise
-   */
-  def hasTemplate(klass: Class[_], viewName: String = "index"): Boolean = {
-    _engine.get match {
-      case null =>
-        throw new RuntimeException("No template engine found")
-      case engine =>
-        val templateName = "/%s.%s.".format(klass.getName.replace(".", "/"), viewName)
-        for (base <- Array("/WEB-INF", ""); path <- TemplateEngine.templateTypes.map(templateName + _))
-          if (engine.resourceLoader.exists(base + path)) return true
-        false
-    }
-  }
-
-  /**
-   * Renders the model view using the JAX-RS output.
-   *
-   * This method works only if the Scalate servlet filter helper has
-   * intercepted the HTTP request for the calling thread.
-   *
-   * @param it the POJO model
-   * @param out the JAX-RS [[java.io.PrintWriter]]
-   * @since 1.0
-   */
-  def render(it: AnyRef, out: PrintWriter) {
-    _context.get match {
-      case null =>
-        throw new RuntimeException("No template context found for it: " + it.getClass)
-      case getContext =>
-        val context = getContext(out)
-        context.engine.layout(new Template {
-          def render(context: RenderContext) {
-            context.view(it)
-          }
-        }, context)
-        context.flush
-
-    }
+    out.flush
   }
 }

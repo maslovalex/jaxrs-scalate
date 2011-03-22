@@ -26,18 +26,18 @@ Usage
 
 ### Configure Servlet filter
 
-The `ScalateFilter` Servlet filter intercepts HTTP requests and captures the
-Servlet context, request, and response for use by the `ScalateProvider` JAX-RS
-provider. As such, `ScalateFilter` must be configured to run before the JAX-RS
-filter, if any.
+The Scalate `TemplateEngineFilter` Servlet filter configures the template
+engine and can be configured anywhere in the filter chain. A subclass of the
+filter can also be used, so long as the `TemplateEngineFilter.doFilter` method
+is invoked properly.
 
     <web-app>
 
       ...
 
       <filter>
-        <filter-name>jaxrsScalateFilter</filter-name>
-        <filter-class>com.mikepb.jaxrs.scalate.ScalateFilter</filter-class>
+        <filter-name>TemplateEngineFilter</filter-name>
+        <filter-class>org.fusesource.scalate.servlet.TemplateEngineFilter</filter-class>
       </filter>
 
       <filter>
@@ -50,12 +50,12 @@ filter, if any.
       </filter>
 
       <filter-mapping>
-        <filter-name>jaxrsScalateFilter</filter-name>
+        <filter-name>Resteasy</filter-name>
         <url-pattern>/*</url-pattern>
       </filter-mapping>
 
       <filter-mapping>
-        <filter-name>Resteasy</filter-name>
+        <filter-name>TemplateEngineFilter</filter-name>
         <url-pattern>/*</url-pattern>
       </filter-mapping>
 

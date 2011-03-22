@@ -1,0 +1,23 @@
+# Eclipse
+.classpath
+.project
+.settings
+
+# IntelliJ IDEA
+*.iml
+*.ipr
+*.iws
+
+# Java
+*.class
+
+# Mac
+.DS_Store
+
+# Maven
+target
+release.properties
+*.releaseBackup
+
+# UNIX temporary files
+*~

@@ -31,9 +31,6 @@ Servlet context, request, and response for use by the `ScalateProvider` JAX-RS
 provider. As such, `ScalateFilter` must be configured to run before the JAX-RS
 filter, if any.
 
-Implementation-specific instructions are available for:
-- [RESTEasy](http://docs.jboss.org/resteasy/docs/2.0.0.GA/userguide/html/Installation_Configuration.html)
-
     <web-app>
 
       ...
@@ -66,6 +63,10 @@ Implementation-specific instructions are available for:
 
     </web-app>
 
+Implementation-specific instructions are available for:
+
+- [RESTEasy](http://docs.jboss.org/resteasy/docs/2.0.0.GA/userguide/html/Installation_Configuration.html)
+
 
 ### Configure JAX-RS `Application`
 
@@ -91,6 +92,7 @@ More information is available from the
 [JAX-RS JavaDocs](http://jsr311.java.net/nonav/releases/1.1/javax/ws/rs/core/Application.html).
 
 Implementation-specific instructions are available for:
+
 - [RESTEasy](http://docs.jboss.org/resteasy/docs/2.0.0.GA/userguide/html/Installation_Configuration.html#javax.ws.rs.core.Application)
 
 

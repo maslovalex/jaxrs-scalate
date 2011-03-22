@@ -26,7 +26,7 @@ Usage
 
 ### Configure Servlet filter
 
-The Scalate `TemplateEngineFilter` Servlet filter configures the template
+The Scalate `TemplateEngineFilter` Servlet filter initializes the template
 engine and can be configured anywhere in the filter chain. A subclass of the
 filter can also be used, so long as the `TemplateEngineFilter.doFilter` method
 is invoked properly.
@@ -36,17 +36,17 @@ is invoked properly.
       ...
 
       <filter>
-        <filter-name>TemplateEngineFilter</filter-name>
-        <filter-class>org.fusesource.scalate.servlet.TemplateEngineFilter</filter-class>
-      </filter>
-
-      <filter>
         <filter-name>Resteasy</filter-name>
         <filter-class>org.jboss.resteasy.plugins.server.servlet.FilterDispatcher</filter-class>
         <init-param>
           <param-name>javax.ws.rs.Application</param-name>
-          <param-value>com.restfully.shop.services.ShoppingApplication</param-value>
+          <param-value>Application</param-value>
         </init-param>
+      </filter>
+
+      <filter>
+        <filter-name>TemplateEngineFilter</filter-name>
+        <filter-class>org.fusesource.scalate.servlet.TemplateEngineFilter</filter-class>
       </filter>
 
       <filter-mapping>

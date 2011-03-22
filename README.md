@@ -122,8 +122,27 @@ The Scalate view `Message.index.jade` for `Message`:
 
     p= message
 
+To use a view other than "index", use the `@ViewName` annotation to provide
+the view name:
 
-> Note: only the `index` view name is currently supported.
+    import com.mikepb.jaxrs.scalate.ViewName
+
+    import javax.ws.rs._
+
+    @Path("/")
+    @Produces(Array("text/html"))
+    @ViewName("custom")
+    class LandingPageResource {
+
+      @GET
+      def index = this
+
+    }
+
+The Scalate view `LandingPageResource.custom.jade` for `LandingPageResource`:
+
+    :markdown
+      This is a custom view!
 
 See the Scalate
 [documentation](http://scalate.fusesource.org/documentation/user-guide.html#Views)

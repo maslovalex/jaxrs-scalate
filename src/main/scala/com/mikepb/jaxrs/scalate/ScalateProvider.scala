@@ -120,6 +120,23 @@ class ScalateProvider(useCache: Boolean = false) extends MessageBodyWriter[AnyRe
   }
 
   /**
+   * Retrieves the view name from annotations.
+   *
+   * @param annotations the annotations
+   * @return the view name given by @[[ViewName]] or "index"
+   * @since 1.0
+   */
+  private def viewNameFromAnnotations(annotations: Array[Annotation]): String = {
+    for (annotation <- annotations) {
+      annotation match {
+        case vn: ViewName => return vn.value
+        case _ =>
+      }
+    }
+    "index"
+  }
+
+  /**
    * Determines if the POJO model has a Scalate view template.
    *
    * @since 1.0
@@ -127,7 +144,7 @@ class ScalateProvider(useCache: Boolean = false) extends MessageBodyWriter[AnyRe
    */
   def isWriteable(kind: Class[_], genericType: Type, annotations: Array[Annotation],
                   mediaType: MediaType) = {
-    val viewName = "index"
+    val viewName = viewNameFromAnnotations(annotations)
     if (useCache && templateLookupCache != null) templateExistsFromCache(kind, viewName)
     else templateExists(kind, viewName)
   }
@@ -152,9 +169,10 @@ class ScalateProvider(useCache: Boolean = false) extends MessageBodyWriter[AnyRe
               entityStream: OutputStream) {
     val out = new PrintWriter(new OutputStreamWriter(entityStream, "UTF-8"))
     val context = new ServletRenderContext(engine, out, request, response, servletContext)
+    val viewName = viewNameFromAnnotations(annotations)
 
     engine.layout(new Template {
-      def render(context: RenderContext) = context.view(model)
+      def render(context: RenderContext) = context.view(model, viewName)
     }, context)
 
     out.flush

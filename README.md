@@ -125,9 +125,8 @@ The Scalate view `Message.index.jade` for `Message`:
 To use a view other than "index", use the `@ViewName` annotation to provide
 the view name:
 
-    import com.mikepb.jaxrs.scalate.ViewName
-
     import javax.ws.rs._
+    import com.mikepb.jaxrs.scalate.ViewName
 
     @Path("/")
     @Produces(Array("text/html"))

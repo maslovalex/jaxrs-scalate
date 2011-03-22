@@ -68,7 +68,7 @@ Implementation-specific instructions are available for:
 - [RESTEasy](http://docs.jboss.org/resteasy/docs/2.0.0.GA/userguide/html/Installation_Configuration.html)
 
 
-### Configure JAX-RS `Application`
+### Configure JAX-RS
 
 The `ScalateProvider` JAX-RS provider is configured via the `Application`
 interface:

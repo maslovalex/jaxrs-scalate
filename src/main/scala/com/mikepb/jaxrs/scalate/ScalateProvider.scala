@@ -167,8 +167,13 @@ object ScalateProvider {
         throw new RuntimeException("No template context found for it: " + it.getClass)
       case getContext =>
         val context = getContext(out)
-        context.view(it)
+        context.engine.layout(new Template {
+          def render(context: RenderContext) {
+            context.view(it)
+          }
+        }, context)
         context.flush
+
     }
   }
 }

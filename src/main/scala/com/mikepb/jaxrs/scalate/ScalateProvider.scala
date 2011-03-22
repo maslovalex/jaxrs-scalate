@@ -18,7 +18,7 @@ package com.mikepb.jaxrs.scalate
 
 import _root_.scala.collection.JavaConversions._
 import _root_.scala.collection.mutable.Map
-import _root_.java.io.{OutputStream, PrintWriter}
+import _root_.java.io._
 import _root_.java.lang.Class
 import _root_.java.lang.annotation.Annotation
 import _root_.java.lang.reflect.Type
@@ -117,7 +117,7 @@ class ScalateProvider(val useCache: Boolean = false) extends MessageBodyWriter[A
   def writeTo(model: AnyRef, kind: Class[_], genericType: Type, annotations: Array[Annotation],
               mediaType: MediaType, httpHeaders: MultivaluedMap[String, AnyRef],
               entityStream: OutputStream) {
-    render(model, new PrintWriter(entityStream))
+    render(model, new PrintWriter(new OutputStreamWriter(entityStream, "UTF-8")))
   }
 }
 

@@ -144,9 +144,11 @@ class ScalateProvider(useCache: Boolean = false) extends MessageBodyWriter[AnyRe
    */
   def isWriteable(kind: Class[_], genericType: Type, annotations: Array[Annotation],
                   mediaType: MediaType) = {
+    val componentType = kind.getComponentType
+    val klass = if (componentType != null) componentType else kind
     val viewName = viewNameFromAnnotations(annotations)
-    if (useCache && templateLookupCache != null) templateExistsFromCache(kind, viewName)
-    else templateExists(kind, viewName)
+    if (useCache && templateLookupCache != null) templateExistsFromCache(klass, viewName)
+    else templateExists(klass, viewName)
   }
 
   /**
@@ -170,9 +172,18 @@ class ScalateProvider(useCache: Boolean = false) extends MessageBodyWriter[AnyRe
     val out = new PrintWriter(new OutputStreamWriter(entityStream, "UTF-8"))
     val context = new ServletRenderContext(engine, out, request, response, servletContext)
     val viewName = viewNameFromAnnotations(annotations)
+    val traversable: Traversable[AnyRef] = model match {
+      case model: Array[AnyRef] => model.toList
+      case model: Traversable[AnyRef] => model
+      case model: java.lang.Iterable[AnyRef] => model
+      case _ => null
+    }
 
     engine.layout(new Template {
-      def render(context: RenderContext) = context.view(model, viewName)
+      def render(context: RenderContext) = {
+        if (traversable != null) context.collection(traversable, viewName)
+        else context.view(model, viewName)
+      }
     }, context)
 
     out.flush

@@ -40,7 +40,7 @@ is invoked properly.
         <filter-class>org.jboss.resteasy.plugins.server.servlet.FilterDispatcher</filter-class>
         <init-param>
           <param-name>javax.ws.rs.Application</param-name>
-          <param-value>Application</param-value>
+          <param-value>MyApplication</param-value>
         </init-param>
       </filter>
 
@@ -73,19 +73,14 @@ Implementation-specific instructions are available for:
 The `ScalateProvider` JAX-RS provider is configured via the `Application`
 interface:
 
-    import _root_.scala.collection.JavaConverters._
-    import _root_.com.mikepb.jaxrs.scalate.ScalateProvider
+    import _root_.com.mikepb.jaxrs.scalate.JaxrsScalateProvider
 
-    class Application extends javax.ws.rs.core.Application {
-
-      override def getSingletons = Set(
-        new ScalateProvider(useCache = true)
-      ).asJava.asInstanceOf[java.util.Set[AnyRef]]
-
-      override def getClasses = Set(
-        classOf[LandingPageResource]
-      ).asJava.asInstanceOf[java.util.Set[java.lang.Class[_]]]
-
+    class MyApplication extends Application with JaxrsScalateApplication {
+      override def getClasses: java.util.Set[Class[_]] = {
+        classes.add(classOf[LandingPageResource])
+        classes.addAll(super.getClasses)
+        classes
+      }
     }
 
 More information is available from the

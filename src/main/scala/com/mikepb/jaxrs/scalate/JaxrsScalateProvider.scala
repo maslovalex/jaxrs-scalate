@@ -16,20 +16,20 @@
 
 package com.mikepb.jaxrs.scalate
 
+import _root_.org.fusesource.scalate._
 import _root_.scala.collection.JavaConversions._
 import _root_.scala.collection.mutable.Map
-import _root_.java.io._
-import _root_.java.lang.Class
-import _root_.java.lang.annotation.Annotation
-import _root_.java.lang.reflect.Type
-import _root_.java.util.LinkedHashMap
+
 import _root_.javax.servlet._
 import _root_.javax.servlet.http._
 import _root_.javax.ws.rs._
 import _root_.javax.ws.rs.core._
 import _root_.javax.ws.rs.ext._
-import _root_.org.fusesource.scalate._
-import _root_.org.fusesource.scalate.servlet._
+
+import _root_.java.io._
+import _root_.java.lang.annotation.{Annotation => JAnnotation}
+import _root_.java.lang.reflect.Type
+import _root_.java.util.LinkedHashMap
 
 /**
  * Scalate JAX-RS provider.
@@ -43,40 +43,41 @@ import _root_.org.fusesource.scalate.servlet._
  * [[http://scalate.fusesource.org/documentation/user-guide.html#using_scalate_as_servlet_filter_in_your_web_application Scalate Servlet feature]]
  * for more information.
  *
+ * The trait [[JaxrsScalateApplication]] can be used as a mix-in to
+ * conveniently add Scalate support to your JAX-RS application.
+ *
  * {{{
- * class GCApplication extends javax.ws.rs.core.Application {
+ * class MyApplication extends Application with JaxrsScalateApplication {
  *
- *   override def getSingletons = Set(
- *     new ScalateProvider(useCache = true)
- *   ).asJava.asInstanceOf[java.util.Set[AnyRef]]
+ *   scalateUseCache = true
  *
- *   override def getClasses = Set(
- *     classOf[LandingPageResource]
- *   ).asJava.asInstanceOf[java.util.Set[java.lang.Class[_]]]
+ *   override def getClasses: java.util.Set[Class[_]] = {
+ *     classes.add(classOf[LandingPageResource])
+ *     classes.addAll(super.getClasses)
+ *     classes
+ *   }
  *
  * }
  * }}}
- *
- * Template look-ups are not cached by default. To enable caching, set the
- * `useCache` constructor parameter as shown above.
  *
  * @since 1.0
  * @author Michael Phan-Ba
  */
 @Provider
 @Produces(Array(MediaType.TEXT_HTML))
-class ScalateProvider(useCache: Boolean = false) extends MessageBodyWriter[AnyRef] {
+class JaxrsScalateProvider(engine: JaxrsTemplateEngine, useCache: Boolean = true) extends MessageBodyWriter[AnyRef] {
 
   @Context
-  private var request: HttpServletRequest = _
+  var request: HttpServletRequest = _
 
   @Context
-  private var response: HttpServletResponse = _
+  var response: HttpServletResponse = _
 
   @Context
-  private var servletContext: ServletContext = _
+  var servletContext: ServletContext = _
 
-  private lazy val engine = ServletTemplateEngine(servletContext)
+  @Context
+  var uriInfo: UriInfo = _
 
   private val templateLookupCache =
     if (useCache)
@@ -126,7 +127,7 @@ class ScalateProvider(useCache: Boolean = false) extends MessageBodyWriter[AnyRe
    * @return the view name given by @[[ViewName]] or "index"
    * @since 1.0
    */
-  private def viewNameFromAnnotations(annotations: Array[Annotation]): String = {
+  private def viewNameFromAnnotations(annotations: Array[JAnnotation]): String = {
     for (annotation <- annotations) {
       annotation match {
         case vn: ViewName => return vn.value
@@ -142,8 +143,7 @@ class ScalateProvider(useCache: Boolean = false) extends MessageBodyWriter[AnyRe
    * @since 1.0
    * @see [[javax.ws.rs.ext.MessageBodyWriter.isWriteable]]
    */
-  def isWriteable(kind: Class[_], genericType: Type, annotations: Array[Annotation],
-                  mediaType: MediaType) = {
+  def isWriteable(kind: Class[_], genericType: Type, annotations: Array[JAnnotation], mediaType: MediaType) = {
     val componentType = kind.getComponentType
     val klass = if (componentType != null) componentType else kind
     val viewName = viewNameFromAnnotations(annotations)
@@ -157,7 +157,7 @@ class ScalateProvider(useCache: Boolean = false) extends MessageBodyWriter[AnyRe
    * @since 1.0
    * @see [[javax.ws.rs.ext.MessageBodyWriter.getSize]]
    */
-  def getSize(model: AnyRef, kind: Class[_], genericType: Type, annotations: Array[Annotation],
+  def getSize(model: AnyRef, kind: Class[_], genericType: Type, annotations: Array[JAnnotation],
               mediaType: MediaType) = -1L
 
   /**
@@ -166,11 +166,10 @@ class ScalateProvider(useCache: Boolean = false) extends MessageBodyWriter[AnyRe
    * @since 1.0
    * @see [[javax.ws.rs.ext.MessageBodyWriter.writeTo]]
    */
-  def writeTo(model: AnyRef, kind: Class[_], genericType: Type, annotations: Array[Annotation],
-              mediaType: MediaType, httpHeaders: MultivaluedMap[String, AnyRef],
-              entityStream: OutputStream) {
+  def writeTo(model: AnyRef, kind: Class[_], genericType: Type, annotations: Array[JAnnotation],
+              mediaType: MediaType, httpHeaders: MultivaluedMap[String, AnyRef], entityStream: OutputStream) {
     val out = new PrintWriter(new OutputStreamWriter(entityStream, "UTF-8"))
-    val context = new ServletRenderContext(engine, out, request, response, servletContext)
+    val context = new JaxrsRenderContext(servletContext, request, response, uriInfo, engine, out)
     val viewName = viewNameFromAnnotations(annotations)
     val traversable: Traversable[AnyRef] = model match {
       case model: Array[AnyRef] => model.toList
@@ -180,12 +179,12 @@ class ScalateProvider(useCache: Boolean = false) extends MessageBodyWriter[AnyRe
     }
 
     engine.layout(new Template {
-      def render(context: RenderContext) = {
+      def render(context: RenderContext) {
         if (traversable != null) context.collection(traversable, viewName)
         else context.view(model, viewName)
       }
     }, context)
 
-    out.flush
+    out.flush()
   }
 }

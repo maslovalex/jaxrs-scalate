@@ -52,6 +52,7 @@ import _root_.java.util.LinkedHashMap
  *   scalateUseCache = true
  *
  *   override def getClasses: java.util.Set[Class[_]] = {
+ *     val classes = new HashSet[AnyRef]
  *     classes.add(classOf[LandingPageResource])
  *     classes.addAll(super.getClasses)
  *     classes

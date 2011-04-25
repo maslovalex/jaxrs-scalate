@@ -119,31 +119,58 @@ class JaxrsRenderContext(val servletContext: ServletContext,
 
   // ---------------------------------------------------------- JAX-RS URI
 
+  /**
+   * Gets a new instance of JAX-RS [[UriBuilder]] for the current URI.
+   */
   def uriBuilder: UriBuilder = uriInfo.getBaseUriBuilder
 
-  def uri[R: Manifest](method: Option[String], query: Map[String, String], fragment: Option[String], port: Option[Int],
-                       absolute: Option[Boolean], secure: Option[Boolean]): URI = {
+  /**
+   * Build a URI for this class.
+   * @tparam R the class for which to build a URI
+   */
+  def uri[R: Manifest]: URI = uriBuilder.path(manifest[R].erasure).build()
+
+  /**
+   * Build a URI for this class with options.
+   *
+   * If a query parameter is supplied as a [[Seq]], multiple values will
+   * be set. Otherwise, the value is converted to a string.
+   *
+   * @tparam R the class for which to build a URI
+   * @param method the optional method for which to build a URI
+   * @param query the optional URI query params
+   * @param fragment the optional URI fragment
+   * @param port the optional URI port
+   * @param absolute build an absolute URI; default=false
+   * @param secure 1 for force HTTPS, -1 for force HTTP, 0 for use current URI scheme; default=0
+   */
+  def uri[R: Manifest](method: String = null, query: Map[String, AnyRef] = Map.empty,
+                       fragment: String = null, port: Int = -1, absolute: Boolean = false,
+                       secure: Int = 0): URI = {
     val clazz = manifest[R].erasure
-    val isSecure = secure.getOrElse(false)
-    val isAbsolute = absolute.getOrElse(false) || isSecure
+    val isSecure = secure > 0
+    val isAbsolute = absolute || isSecure
 
     val builder = uriBuilder.path(clazz)
 
     // method sub path
-    method.foreach(builder.path(clazz, _))
+    if (method != null) builder.path(clazz, method)
 
     // scheme
-    if (secure.isDefined)
+    if (secure != 0)
       builder scheme (if (isSecure) "https" else "http")
 
     // port
-    port.foreach(builder.port)
+    builder port port
 
     // query parameters
-    query.map(x => builder.queryParam(x._1, x._2))
+    query map {
+      case (name, values: Seq[AnyRef]) => builder.queryParam(name, values: _*)
+      case (name, value) => builder.queryParam(name, value)
+    }
 
     // fragment
-    fragment.foreach(builder.fragment)
+    if (fragment != null) builder fragment fragment
 
     // to URI
     val uri = builder.build()
@@ -153,70 +180,5 @@ class JaxrsRenderContext(val servletContext: ServletContext,
     else
       new URI(null, null, null, -1, uri.getPath, uri.getQuery, uri.getFragment)
   }
-
-  // ---------------------------------------------------------- expanded
-
-  def uri[R: Manifest](method: String, query: Map[String, String], fragment: String, port: Int, absolute: Boolean, secure: Boolean): URI = uri[R](Some(method), query, Some(fragment), Some(port), Some(absolute), Some(secure))
-  def uri[R: Manifest](method: String, query: Map[String, String], fragment: String, port: Int, absolute: Boolean /*            */): URI = uri[R](Some(method), query, Some(fragment), Some(port), Some(absolute), None)
-  def uri[R: Manifest](method: String, query: Map[String, String], fragment: String, port: Int /*                               */): URI = uri[R](Some(method), query, Some(fragment), Some(port), None, None)
-  def uri[R: Manifest](method: String, query: Map[String, String], fragment: String, /*      */ absolute: Boolean, secure: Boolean): URI = uri[R](Some(method), query, Some(fragment), None, Some(absolute), Some(secure))
-  def uri[R: Manifest](method: String, query: Map[String, String], fragment: String, /*      */ absolute: Boolean /*            */): URI = uri[R](Some(method), query, Some(fragment), None, Some(absolute), None)
-  def uri[R: Manifest](method: String, query: Map[String, String], fragment: String /*                                         */): URI = uri[R](Some(method), query, Some(fragment), None, None, None)
-
-  def uri[R: Manifest](method: String, query: Map[String, String], /*             */ port: Int, absolute: Boolean, secure: Boolean): URI = uri[R](Some(method), query, None, Some(port), Some(absolute), Some(secure))
-  def uri[R: Manifest](method: String, query: Map[String, String], /*             */ port: Int, absolute: Boolean /*            */): URI = uri[R](Some(method), query, None, Some(port), Some(absolute), None)
-  def uri[R: Manifest](method: String, query: Map[String, String], /*             */ port: Int /*                               */): URI = uri[R](Some(method), query, None, Some(port), None, None)
-  def uri[R: Manifest](method: String, query: Map[String, String], /*                        */ absolute: Boolean, secure: Boolean): URI = uri[R](Some(method), query, None, None, Some(absolute), Some(secure))
-  def uri[R: Manifest](method: String, query: Map[String, String], /*                        */ absolute: Boolean /*            */): URI = uri[R](Some(method), query, None, None, Some(absolute), None)
-  def uri[R: Manifest](method: String, query: Map[String, String] /*                                                           */): URI = uri[R](Some(method), query, None, None, None, None)
-
-  def uri[R: Manifest](method: String, /*                       */ fragment: String, port: Int, absolute: Boolean, secure: Boolean): URI = uri[R](Some(method), Map.empty[String, String], Some(fragment), Some(port), Some(absolute), Some(secure))
-  def uri[R: Manifest](method: String, /*                       */ fragment: String, port: Int, absolute: Boolean /*            */): URI = uri[R](Some(method), Map.empty[String, String], Some(fragment), Some(port), Some(absolute), None)
-  def uri[R: Manifest](method: String, /*                       */ fragment: String, port: Int /*                               */): URI = uri[R](Some(method), Map.empty[String, String], Some(fragment), Some(port), None, None)
-  def uri[R: Manifest](method: String, /*                       */ fragment: String, /*      */ absolute: Boolean, secure: Boolean): URI = uri[R](Some(method), Map.empty[String, String], Some(fragment), None, Some(absolute), Some(secure))
-  def uri[R: Manifest](method: String, /*                       */ fragment: String, /*      */ absolute: Boolean /*            */): URI = uri[R](Some(method), Map.empty[String, String], Some(fragment), None, Some(absolute), None)
-  def uri[R: Manifest](method: String, /*                       */ fragment: String /*                                         */): URI = uri[R](Some(method), Map.empty[String, String], Some(fragment), None, None, None)
-
-  //  def uri[R: Manifest](method: String, /*                                         */ port: Int, absolute: Boolean, secure: Boolean): URI = uri[R](Some(method), Map.empty[String, String], None, Some(port), Some(absolute), Some(secure))
-  //  def uri[R: Manifest](method: String, /*                                         */ port: Int, absolute: Boolean /*            */): URI = uri[R](Some(method), Map.empty[String, String], None, Some(port), Some(absolute), None)
-  //  def uri[R: Manifest](method: String, /*                                         */ port: Int /*                               */): URI = uri[R](Some(method), Map.empty[String, String], None, Some(port), None, None)
-  //  def uri[R: Manifest](method: String, /*                                                    */ absolute: Boolean, secure: Boolean): URI = uri[R](Some(method), Map.empty[String, String], None, None, Some(absolute), Some(secure))
-  //  def uri[R: Manifest](method: String, /*                                                    */ absolute: Boolean /*            */): URI = uri[R](Some(method), Map.empty[String, String], None, None, Some(absolute), None)
-  //  def uri[R: Manifest](method: String  /*                                                                                       */): URI = uri[R](Some(method), Map.empty[String, String], None, None, None, None)
-
-  def uri[R: Manifest](isMethod: Boolean, methodOrFragment: String, /*            */ port: Int, absolute: Boolean, secure: Boolean): URI = uri[R](if (isMethod) Some(methodOrFragment) else None, Map.empty[String, String], if (!isMethod) Some(methodOrFragment) else None, Some(port), Some(absolute), Some(secure))
-  def uri[R: Manifest](isMethod: Boolean, methodOrFragment: String, /*            */ port: Int, absolute: Boolean /*            */): URI = uri[R](if (isMethod) Some(methodOrFragment) else None, Map.empty[String, String], if (!isMethod) Some(methodOrFragment) else None, Some(port), Some(absolute), None)
-  def uri[R: Manifest](isMethod: Boolean, methodOrFragment: String, /*            */ port: Int /*                               */): URI = uri[R](if (isMethod) Some(methodOrFragment) else None, Map.empty[String, String], if (!isMethod) Some(methodOrFragment) else None, Some(port), None, None)
-  def uri[R: Manifest](isMethod: Boolean, methodOrFragment: String, /*                       */ absolute: Boolean, secure: Boolean): URI = uri[R](if (isMethod) Some(methodOrFragment) else None, Map.empty[String, String], if (!isMethod) Some(methodOrFragment) else None, None, Some(absolute), Some(secure))
-  def uri[R: Manifest](isMethod: Boolean, methodOrFragment: String, /*                       */ absolute: Boolean /*            */): URI = uri[R](if (isMethod) Some(methodOrFragment) else None, Map.empty[String, String], if (!isMethod) Some(methodOrFragment) else None, None, Some(absolute), None)
-  def uri[R: Manifest](isMethod: Boolean, methodOrFragment: String /*                                                          */): URI = uri[R](if (isMethod) Some(methodOrFragment) else None, Map.empty[String, String], if (!isMethod) Some(methodOrFragment) else None, None, None, None)
-
-  def uri[R: Manifest](/*           */ query: Map[String, String], fragment: String, port: Int, absolute: Boolean, secure: Boolean): URI = uri[R](None, query, Some(fragment), Some(port), Some(absolute), Some(secure))
-  def uri[R: Manifest](/*           */ query: Map[String, String], fragment: String, port: Int, absolute: Boolean /*            */): URI = uri[R](None, query, Some(fragment), Some(port), Some(absolute), None)
-  def uri[R: Manifest](/*           */ query: Map[String, String], fragment: String, port: Int /*                               */): URI = uri[R](None, query, Some(fragment), Some(port), None, None)
-  def uri[R: Manifest](/*           */ query: Map[String, String], fragment: String, /*      */ absolute: Boolean, secure: Boolean): URI = uri[R](None, query, Some(fragment), None, Some(absolute), Some(secure))
-  def uri[R: Manifest](/*           */ query: Map[String, String], fragment: String, /*      */ absolute: Boolean /*            */): URI = uri[R](None, query, Some(fragment), None, Some(absolute), None)
-  def uri[R: Manifest](/*           */ query: Map[String, String], fragment: String /*                                         */): URI = uri[R](None, query, Some(fragment), None, None, None)
-
-  def uri[R: Manifest](/*           */ query: Map[String, String], /*             */ port: Int, absolute: Boolean, secure: Boolean): URI = uri[R](None, query, None, Some(port), Some(absolute), Some(secure))
-  def uri[R: Manifest](/*           */ query: Map[String, String], /*             */ port: Int, absolute: Boolean /*            */): URI = uri[R](None, query, None, Some(port), Some(absolute), None)
-  def uri[R: Manifest](/*           */ query: Map[String, String], /*             */ port: Int /*                               */): URI = uri[R](None, query, None, Some(port), None, None)
-  def uri[R: Manifest](/*           */ query: Map[String, String], /*                        */ absolute: Boolean, secure: Boolean): URI = uri[R](None, query, None, None, Some(absolute), Some(secure))
-  def uri[R: Manifest](/*           */ query: Map[String, String], /*                        */ absolute: Boolean /*            */): URI = uri[R](None, query, None, None, Some(absolute), None)
-  def uri[R: Manifest](/*           */ query: Map[String, String] /*                                                           */): URI = uri[R](None, query, None, None, None, None)
-
-  def uri[R: Manifest](/*                                       */ fragment: String, port: Int, absolute: Boolean, secure: Boolean): URI = uri[R](None, Map.empty[String, String], Some(fragment), Some(port), Some(absolute), Some(secure))
-  def uri[R: Manifest](/*                                       */ fragment: String, port: Int, absolute: Boolean /*            */): URI = uri[R](None, Map.empty[String, String], Some(fragment), Some(port), Some(absolute), None)
-  def uri[R: Manifest](/*                                       */ fragment: String, port: Int /*                               */): URI = uri[R](None, Map.empty[String, String], Some(fragment), Some(port), None, None)
-  def uri[R: Manifest](/*                                       */ fragment: String, /*      */ absolute: Boolean, secure: Boolean): URI = uri[R](None, Map.empty[String, String], Some(fragment), None, Some(absolute), Some(secure))
-  def uri[R: Manifest](/*                                       */ fragment: String, /*      */ absolute: Boolean /*            */): URI = uri[R](None, Map.empty[String, String], Some(fragment), None, Some(absolute), None)
-  //  def uri[R: Manifest](/*                                       */ fragment: String /*                                         */): URI = uri[R](None, Map.empty[String, String], Some(fragment), None, None, None)
-
-  def uri[R: Manifest](/*                                                         */ port: Int, absolute: Boolean, secure: Boolean): URI = uri[R](None, Map.empty[String, String], None, Some(port), Some(absolute), Some(secure))
-  def uri[R: Manifest](/*                                                         */ port: Int, absolute: Boolean /*            */): URI = uri[R](None, Map.empty[String, String], None, Some(port), Some(absolute), None)
-  def uri[R: Manifest](/*                                                         */ port: Int /*                               */): URI = uri[R](None, Map.empty[String, String], None, Some(port), None, None)
-  def uri[R: Manifest](/*                                                                    */ absolute: Boolean, secure: Boolean): URI = uri[R](None, Map.empty[String, String], None, None, Some(absolute), Some(secure))
-  def uri[R: Manifest](/*                                                                    */ absolute: Boolean /*            */): URI = uri[R](None, Map.empty[String, String], None, None, Some(absolute), None)
-  def uri[R: Manifest] /*                                                                                                       */ : URI = uriBuilder.path(manifest[R].erasure).build()
 
 }

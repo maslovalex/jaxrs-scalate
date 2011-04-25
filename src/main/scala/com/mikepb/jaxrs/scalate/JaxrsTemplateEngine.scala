@@ -62,12 +62,12 @@ class JaxrsTemplateEngine(context: ServletContext)
   bindings = List(Binding("context", "_root_." + classOf[JaxrsRenderContext].getName, true, isImplicit = true))
   bootInjections = List(this, context)
 
-  private val defaultLayouts = context.getInitParameter("scalate.defaultLayout") match {
-    case null => TemplateEngine.templateTypes.map("/WEB-INF/scalate/layouts/default." + _)
-    case layout => Seq(layout)
-  }
-
   templateDirectories = List("WEB-INF", "")
-  layoutStrategy = new DefaultLayoutStrategy(this, defaultLayouts: _*)
+  layoutStrategy = new DefaultLayoutStrategy(this, {
+    context.getInitParameter("scalate.defaultLayout") match {
+      case null => TemplateEngine.templateTypes.map("/WEB-INF/scalate/layouts/default." + _)
+      case layout => Seq(layout)
+    }
+  }: _*)
 
 }

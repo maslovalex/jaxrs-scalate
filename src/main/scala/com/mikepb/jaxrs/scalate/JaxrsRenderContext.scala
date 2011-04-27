@@ -115,7 +115,10 @@ class JaxrsRenderContext(val servletContext: ServletContext,
   /**
    * URI for this context path.
    */
-  override def uri(uri: String) = if (uri.startsWith("/")) request.getContextPath + uri else uri
+  override def uri(uri: String) = {
+    val encoded = if (uri.startsWith("/")) request.getContextPath + uri else uri
+    encodeURI(new URI(encoded)).toString
+  }
 
   // ---------------------------------------------------------- JAX-RS URI
 
@@ -175,10 +178,23 @@ class JaxrsRenderContext(val servletContext: ServletContext,
     // to URI
     val uri = builder.build()
 
-    if (isAbsolute)
-      new URI(uri.getScheme, null, uri.getHost, uri.getPort, uri.getPath, uri.getQuery, uri.getFragment)
-    else
-      new URI(null, null, null, -1, uri.getPath, uri.getQuery, uri.getFragment)
+    val uriPath = response.encodeURL(uri.getPath)
+    val uriQuery = uri.getQuery
+    val uriFragment = uri.getFragment
+
+    if (isAbsolute) {
+      val answer = new URI(uri.getScheme, null, uri.getHost, uri.getPort, uriPath, uriQuery, uriFragment)
+      encodeURI(answer)
+    } else new URI(null, null, null, -1, uriPath, uriQuery, uriFragment)
+  }
+
+  private def encodeURI(uri: URI) = {
+    uri.getHost match {
+      case host: String if host equalsIgnoreCase request.getServerName =>
+        new URI(response.encodeURL(uri.toString))
+      case null => new URI(response.encodeURL(uri.toString))
+      case _ => uri
+    }
   }
 
 }

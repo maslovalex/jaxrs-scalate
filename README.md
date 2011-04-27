@@ -26,10 +26,8 @@ Usage
 
 ### Configure Servlet filter
 
-The Scalate `TemplateEngineFilter` Servlet filter initializes the template
-engine and can be configured anywhere in the filter chain. A subclass of the
-filter can also be used, so long as the `TemplateEngineFilter.doFilter` method
-is invoked properly.
+The JAX-RS Scalate provider requires a JAX-RS engine. Here is a simple Resteasy
+web.xml snippet:
 
     <web-app>
 
@@ -44,18 +42,8 @@ is invoked properly.
         </init-param>
       </filter>
 
-      <filter>
-        <filter-name>TemplateEngineFilter</filter-name>
-        <filter-class>org.fusesource.scalate.servlet.TemplateEngineFilter</filter-class>
-      </filter>
-
       <filter-mapping>
         <filter-name>Resteasy</filter-name>
-        <url-pattern>/*</url-pattern>
-      </filter-mapping>
-
-      <filter-mapping>
-        <filter-name>TemplateEngineFilter</filter-name>
         <url-pattern>/*</url-pattern>
       </filter-mapping>
 

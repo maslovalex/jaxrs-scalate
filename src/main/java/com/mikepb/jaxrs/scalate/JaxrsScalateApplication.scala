@@ -32,11 +32,14 @@ trait JaxrsScalateApplication extends Application {
   var servletContext: ServletContext = _
   var scalateUseCache = true
 
-  override def getSingletons: java.util.Set[AnyRef] = {
+  private lazy val scalateProvider = {
     val engine = new JaxrsTemplateEngine(servletContext); engine.boot
-    val scalate = new JaxrsScalateProvider(engine, scalateUseCache)
+    new JaxrsScalateProvider(engine, scalateUseCache)
+  }
+
+  override def getSingletons: java.util.Set[AnyRef] = {
     val providers = new HashSet[AnyRef]
-    providers.add(scalate)
+    providers.add(scalateProvider)
     providers.addAll(super.getSingletons)
     providers
   }

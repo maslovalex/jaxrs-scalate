@@ -115,15 +115,14 @@ class JaxrsRenderContext(val servletContext: ServletContext,
   /**
    * URI for this context path.
    */
-  override def uri(uri: String) = {
-    val encoded = if (uri.startsWith("/")) request.getContextPath + uri else uri
-    encodeURI(new URI(encoded)).toString
-  }
+  override def uri(uri: String) = response.encodeURL(if (uri.startsWith("/")) request.getContextPath + uri else uri)
 
   // ---------------------------------------------------------- JAX-RS URI
 
   /**
    * Gets a new instance of JAX-RS [[UriBuilder]] for the current URI.
+   *
+   * Does not use [[javax.servlet.http.HttpServletResponse.encodeURL()]].
    */
   def uriBuilder: UriBuilder = uriInfo.getBaseUriBuilder
 
@@ -131,7 +130,7 @@ class JaxrsRenderContext(val servletContext: ServletContext,
    * Build a URI for this class.
    * @tparam R the class for which to build a URI
    */
-  def uri[R: Manifest]: URI = uriBuilder.path(manifest[R].erasure).build()
+  def uri[R: Manifest]: URI = encodeURI(uriBuilder.path(manifest[R].erasure).build())
 
   /**
    * Build a URI for this class with options.
@@ -182,19 +181,14 @@ class JaxrsRenderContext(val servletContext: ServletContext,
     val uriQuery = uri.getQuery
     val uriFragment = uri.getFragment
 
-    if (isAbsolute) {
-      val answer = new URI(uri.getScheme, null, uri.getHost, uri.getPort, uriPath, uriQuery, uriFragment)
-      encodeURI(answer)
-    } else new URI(null, null, null, -1, uriPath, uriQuery, uriFragment)
-  }
-
-  private def encodeURI(uri: URI) = {
-    uri.getHost match {
-      case host: String if host equalsIgnoreCase request.getServerName =>
-        new URI(response.encodeURL(uri.toString))
-      case null => new URI(response.encodeURL(uri.toString))
-      case _ => uri
+    encodeURI {
+      if (isAbsolute)
+        new URI(uri.getScheme, null, uri.getHost, uri.getPort, uriPath, uriQuery, uriFragment)
+      else
+        new URI(null, null, null, -1, uriPath, uriQuery, uriFragment)
     }
   }
+
+  private def encodeURI(uri: URI) = new URI(response.encodeURL(uri.toString))
 
 }
